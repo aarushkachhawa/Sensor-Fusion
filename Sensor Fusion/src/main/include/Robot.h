@@ -5,6 +5,15 @@
 #pragma once
 
 #include <frc/TimedRobot.h>
+#include <rev/CANSparkMax.h>
+#include <frc/Joystick.h>
+
+#define lMotorLeaderID 1
+#define lMotorFollowerID 2
+#define rMotorLeaderID 3
+#define rMotorFollowerID 4
+
+using namespace frc;
 
 class Robot : public frc::TimedRobot {
  public:
@@ -25,4 +34,12 @@ class Robot : public frc::TimedRobot {
 
   void SimulationInit() override;
   void SimulationPeriodic() override;
+
+  rev::CANSparkMax* lMotor = new rev::CANSparkMax(lMotorLeaderID, rev::CANSparkMax::MotorType::kBrushless);
+  rev::CANSparkMax* lMotorFollower = new rev::CANSparkMax(lMotorFollowerID, rev::CANSparkMax::MotorType::kBrushless);
+  rev::CANSparkMax* rMotor = new rev::CANSparkMax(rMotorLeaderID, rev::CANSparkMax::MotorType::kBrushless);
+  rev::CANSparkMax* rMotorFollower = new rev::CANSparkMax(rMotorFollowerID, rev::CANSparkMax::MotorType::kBrushless);
+
+  Joystick* y_j = new Joystick(0);
+  Joystick* x_j = new Joystick(1);
 };
