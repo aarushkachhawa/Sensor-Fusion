@@ -21,13 +21,30 @@ void Robot::RobotPeriodic() {}
 void Robot::AutonomousInit() {}
 void Robot::AutonomousPeriodic() {}
 
-void Robot::TeleopInit() {}
+void Robot::TeleopInit() {
+  lEncoder.SetPosition(0);
+  rEncoder.SetPosition(0);
+
+}
 void Robot::TeleopPeriodic() {
   // L_X = 0, L_Y = 1, R_X = 4, R_Y = 5
+  // Buttons: A = , B = , X = , Y = 
 
+  if (stick->GetRawButtonPressed(1)) {
+    // theta represents the change in orientation (in radians) from the original position
+
+    double lRotations = lEncoder.GetPosition(); 
+    double rRotations = rEncoder.GetPosition();
+    // TODO: Convert native encoder units to centimeters
+    
+    double theta = (lRotations - rRotations) / (rDistanceToCenter + lDistanceToCenter);
+
+  }
+
+  
 
   double dz = 0.08; // Deadzone
-  double x = y_j->GetY(); // Raw Y value
+  double x = stick->GetRawAxis(1); // Raw Y value
 
   if (abs(x) > dz) {
 

@@ -6,6 +6,7 @@
 
 #include <frc/TimedRobot.h>
 #include <rev/CANSparkMax.h>
+#include <rev/SparkMaxRelativeEncoder.h>
 #include <frc/Joystick.h>
 
 #define lMotorLeaderID 1
@@ -40,6 +41,12 @@ class Robot : public frc::TimedRobot {
   rev::CANSparkMax* rMotor = new rev::CANSparkMax(rMotorLeaderID, rev::CANSparkMax::MotorType::kBrushless);
   rev::CANSparkMax* rMotorFollower = new rev::CANSparkMax(rMotorFollowerID, rev::CANSparkMax::MotorType::kBrushless);
 
-  Joystick* y_j = new Joystick(0);
-  Joystick* x_j = new Joystick(1);
+  rev::SparkMaxRelativeEncoder lEncoder = lMotor->GetEncoder();
+  rev::SparkMaxRelativeEncoder rEncoder = rMotor->GetEncoder();
+
+  Joystick* stick = new Joystick(0);
+
+  // in centimeters
+  const double rDistanceToCenter = 15.0; 
+  const double lDistanceToCenter = 15.0;
 };
