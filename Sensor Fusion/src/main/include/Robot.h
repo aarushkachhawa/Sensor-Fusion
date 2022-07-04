@@ -8,6 +8,7 @@
 #include <rev/CANSparkMax.h>
 #include <rev/SparkMaxRelativeEncoder.h>
 #include <frc/Joystick.h>
+#include "SFDrive.h"
 
 #define lMotorLeaderID 1
 #define lMotorFollowerID 2
@@ -36,6 +37,9 @@ class Robot : public frc::TimedRobot {
   void SimulationInit() override;
   void SimulationPeriodic() override;
 
+  double left_y = 0.0;
+  double right_x = 0.0;
+
   rev::CANSparkMax* lMotor = new rev::CANSparkMax(lMotorLeaderID, rev::CANSparkMax::MotorType::kBrushless);
   rev::CANSparkMax* lMotorFollower = new rev::CANSparkMax(lMotorFollowerID, rev::CANSparkMax::MotorType::kBrushless);
   rev::CANSparkMax* rMotor = new rev::CANSparkMax(rMotorLeaderID, rev::CANSparkMax::MotorType::kBrushless);
@@ -49,4 +53,6 @@ class Robot : public frc::TimedRobot {
   // in centimeters
   const double rDistanceToCenter = 15.0; 
   const double lDistanceToCenter = 15.0;
+
+  SFDrive* robotDrive = new SFDrive(lMotor, rMotor);
 };

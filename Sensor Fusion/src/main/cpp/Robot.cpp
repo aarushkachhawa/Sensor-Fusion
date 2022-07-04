@@ -3,6 +3,7 @@
 // the WPILib BSD license file in the root directory of this project.
 
 #include "Robot.h"
+#include <frc/smartdashboard/SmartDashboard.h>
 
 void Robot::RobotInit() {
   lMotor->RestoreFactoryDefaults();
@@ -15,8 +16,14 @@ void Robot::RobotInit() {
   rMotor->SetInverted(false);
   rMotorFollower->Follow(*rMotor, false);
 
+  lEncoder.SetPosition(0);
+  rEncoder.SetPosition(0);
+
 }
-void Robot::RobotPeriodic() {}
+void Robot::RobotPeriodic() {
+  frc::SmartDashboard::PutNumber("left y", -stick->GetRawAxis(1));
+  frc::SmartDashboard::PutNumber("right x", stick->GetRawAxis(4));
+}
 
 void Robot::AutonomousInit() {}
 void Robot::AutonomousPeriodic() {}
@@ -30,6 +37,11 @@ void Robot::TeleopPeriodic() {
   // L_X = 0, L_Y = 1, R_X = 4, R_Y = 5
   // Buttons: A = , B = , X = , Y = 
 
+  left_y = stick->GetRawAxis(1);
+  right_x = stick->GetRawAxis(4);
+
+  robotDrive->ArcadeDrive(left_y, right_x);
+
   if (stick->GetRawButtonPressed(1)) {
     // theta represents the change in orientation (in radians) from the original position
 
@@ -38,27 +50,8 @@ void Robot::TeleopPeriodic() {
     // TODO: Convert native encoder units to centimeters
     
     double theta = (lRotations - rRotations) / (rDistanceToCenter + lDistanceToCenter);
+    frc::SmartDashboard::PutNumber("theta", theta);
 
-  }
-
-  
-
-  double dz = 0.08; // Deadzone
-  double x = stick->GetRawAxis(1); // Raw Y value
-
-  if (abs(x) > dz) {
-
-    double y = (1/(1-dz)) * abs(x) + (1 - (1/(1-dz)));
-    y = copysign(y, x);
-
-    //y = y * y; increased sensitivity
-
-    lMotor->Set(y);
-    rMotor->Set(-y);
-
-  } else {
-    lMotor->Set(0);
-    rMotor->Set(0);
   }
 }
 
