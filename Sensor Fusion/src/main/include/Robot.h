@@ -9,6 +9,7 @@
 #include <rev/SparkMaxRelativeEncoder.h>
 #include <frc/Joystick.h>
 #include "SFDrive.h"
+#include <frc/ADIS16448_IMU.h>
 
 #define lMotorLeaderID 1
 #define lMotorFollowerID 2
@@ -53,6 +54,9 @@ class Robot : public frc::TimedRobot {
   // in centimeters
   const double rDistanceToCenter = 15.0; 
   const double lDistanceToCenter = 15.0;
+
+  // gyro
+  frc::ADIS16448_IMU* imu = new ADIS16448_IMU();
 
   SFDrive* robotDrive = new SFDrive(lMotor, rMotor);
 };

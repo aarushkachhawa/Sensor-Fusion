@@ -18,10 +18,12 @@ void Robot::RobotInit() {
 
   lEncoder.SetPosition(0);
   rEncoder.SetPosition(0);
+  
+  imu->Reset();
 
 }
 void Robot::RobotPeriodic() {
-  frc::SmartDashboard::PutNumber("left y", -stick->GetRawAxis(1));
+  frc::SmartDashboard::PutNumber("left y", stick->GetRawAxis(1));
   frc::SmartDashboard::PutNumber("right x", stick->GetRawAxis(4));
 }
 
@@ -51,6 +53,8 @@ void Robot::TeleopPeriodic() {
     
     double theta = (lRotations - rRotations) / (rDistanceToCenter + lDistanceToCenter);
     frc::SmartDashboard::PutNumber("theta", theta);
+    float gyroVal = imu->GetAngle().value();
+    frc::SmartDashboard::PutNumber("gyro value", gyroVal);
 
   }
 }
