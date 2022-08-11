@@ -4,6 +4,7 @@
 
 #include "Robot.h"
 #include <frc/smartdashboard/SmartDashboard.h>
+#include <math.h>
 
 void Robot::RobotInit() {
   lMotor->RestoreFactoryDefaults();
@@ -21,6 +22,12 @@ void Robot::RobotInit() {
   
   imu->Reset();
 
+  lMotor->SetIdleMode(rev::CANSparkMax::IdleMode::kBrake);
+  lMotorFollower->SetIdleMode(rev::CANSparkMax::IdleMode::kBrake);
+  rMotor->SetIdleMode(rev::CANSparkMax::IdleMode::kBrake);
+  rMotorFollower->SetIdleMode(rev::CANSparkMax::IdleMode::kBrake);
+
+
 }
 void Robot::RobotPeriodic() {
   frc::SmartDashboard::PutNumber("left y", stick->GetRawAxis(1));
@@ -34,29 +41,45 @@ void Robot::TeleopInit() {
   lEncoder.SetPosition(0);
   rEncoder.SetPosition(0);
 
+  // orignallly 0.51 (6.4 / (4*pi)) where 6.4 is gear ration and 4pi is circumference
+  // supposed to be 1 / 0.51
+  lEncoder.SetPositionConversionFactor(1.96);
+  rEncoder.SetPositionConversionFactor(1.96);
+
 }
 void Robot::TeleopPeriodic() {
   // L_X = 0, L_Y = 1, R_X = 4, R_Y = 5
-  // Buttons: A = , B = , X = , Y = 
+  // Buttons: A = 1, B = , X = , Y = 
 
   left_y = stick->GetRawAxis(1);
   right_x = stick->GetRawAxis(4);
 
-  robotDrive->ArcadeDrive(left_y, right_x);
+  robotDrive->ArcadeDrive(left_y, (-1) * right_x);
 
-  if (stick->GetRawButtonPressed(1)) {
-    // theta represents the change in orientation (in radians) from the original position
+  // theta represents the change in orientation (in radians) from the original position
 
     double lRotations = lEncoder.GetPosition(); 
     double rRotations = rEncoder.GetPosition();
-    // TODO: Convert native encoder units to centimeters
     
     double theta = (lRotations - rRotations) / (rDistanceToCenter + lDistanceToCenter);
-    frc::SmartDashboard::PutNumber("theta", theta);
+    theta = theta * 180 / PI;
+    frc::SmartDashboard::PutNumber("computed theta", theta);
     float gyroVal = imu->GetAngle().value();
     frc::SmartDashboard::PutNumber("gyro value", gyroVal);
 
-  }
+    // TODO: magnetometer heading
+    units::magnetic_field_strength::tesla_t mag_x_native = imu->GetMagneticFieldX();
+    units::magnetic_field_strength::tesla_t mag_y_native = imu->GetMagneticFieldY();
+
+    double mag_x = mag_x_native.value();
+    double mag_y = mag_y_native.value();
+
+    double mag_heading = ((atan2(mag_y, mag_x) * 180) / PI);
+    frc::SmartDashboard::PutNumber("mag heading", mag_heading);
+
+    // TODO: drift sensor to each other
+    // 0.01 * error * time interval
+    // Kalman sensor - probability state filter
 }
 
 void Robot::DisabledInit() {}

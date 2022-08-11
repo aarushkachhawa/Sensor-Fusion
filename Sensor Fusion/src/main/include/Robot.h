@@ -11,10 +11,13 @@
 #include "SFDrive.h"
 #include <frc/ADIS16448_IMU.h>
 
-#define lMotorLeaderID 1
-#define lMotorFollowerID 2
-#define rMotorLeaderID 3
-#define rMotorFollowerID 4
+// change ids
+#define lMotorLeaderID 15
+#define lMotorFollowerID 16
+#define rMotorLeaderID 9
+#define rMotorFollowerID 3
+
+#define PI 3.141592
 
 using namespace frc;
 
@@ -51,12 +54,16 @@ class Robot : public frc::TimedRobot {
 
   Joystick* stick = new Joystick(0);
 
-  // in centimeters
-  const double rDistanceToCenter = 15.0; 
-  const double lDistanceToCenter = 15.0;
+  // in inches
+  const double rDistanceToCenter = 13.0; 
+  const double lDistanceToCenter = 13.0;
 
   // gyro
   frc::ADIS16448_IMU* imu = new ADIS16448_IMU();
+
+  // ^ add magnetometer and report pressure
+  // order proximity sensor
+
 
   SFDrive* robotDrive = new SFDrive(lMotor, rMotor);
 };
