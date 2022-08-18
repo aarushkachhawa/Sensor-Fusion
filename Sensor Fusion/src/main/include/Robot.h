@@ -10,6 +10,8 @@
 #include <frc/Joystick.h>
 #include "SFDrive.h"
 #include <frc/ADIS16448_IMU.h>
+#include <frc/estimator/ExtendedKalmanFilter.h>
+#include <frc/Timer.h>
 
 // change ids
 #define lMotorLeaderID 15
@@ -66,4 +68,10 @@ class Robot : public frc::TimedRobot {
 
 
   SFDrive* robotDrive = new SFDrive(lMotor, rMotor);
+
+  Timer* timer = new Timer(); 
+  double lastTime = 0;
+
+  double gyroDrift = 0;
+
 };
