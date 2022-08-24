@@ -45,7 +45,7 @@ class Robot : public frc::TimedRobot {
 
   void outputMagnetometerNoise(double mag_heading);
   void outputMaxDriftPerSecond(double gyroVal);
-
+  void sensorDriftAlgorithm(double gyroVal, double mag_heading, double og_mag_heading);
   double driftSensor(double error_delta, double max_drift_per_second);
 
   double left_y = 0.0;
@@ -68,16 +68,13 @@ class Robot : public frc::TimedRobot {
   // gyro
   frc::ADIS16448_IMU* imu = new ADIS16448_IMU();
 
-  // ^ add magnetometer and report pressure
-  // order proximity sensor
-
-
   SFDrive* robotDrive = new SFDrive(lMotor, rMotor);
 
   Timer* timer = new Timer(); 
   double driftLastTime = 0;
   double lastTime = 0;
 
-  double gyroDrift = 0;
+  double gyro_drift = 0;
+
 
 };

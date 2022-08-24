@@ -43,8 +43,8 @@ void Robot::TeleopInit() {
   lEncoder.SetPosition(0);
   rEncoder.SetPosition(0);
 
-  // orignallly 0.51 (6.4 / (4*pi)) where 6.4 is gear ration and 4pi is circumference
-  // supposed to be 1 / 0.51 --> 1.96
+  // 1 / (6.4 / (4 * pi)) --> 1.96
+  // 6.4 is gear ratio and 4pi is circumference 
   lEncoder.SetPositionConversionFactor(1.96);
   rEncoder.SetPositionConversionFactor(1.96);
 
@@ -52,102 +52,94 @@ void Robot::TeleopInit() {
 
 }
 void Robot::TeleopPeriodic() {
-  // L_X = 0, L_Y = 1, R_X = 4, R_Y = 5
-  // Buttons: A = 1, B = , X = , Y = 
 
   left_y = stick->GetRawAxis(1);
   right_x = stick->GetRawAxis(4);
 
   robotDrive->ArcadeDrive(left_y, (-1) * right_x);
 
-  // theta represents the change in orientation (in radians) from the original position
+  // Part 1: Reading/Calculating Sensor Data (3 Sensors)
 
-    double lRotations = lEncoder.GetPosition(); 
-    double rRotations = rEncoder.GetPosition();
-    
-    double theta = (lRotations - rRotations) / (rDistanceToCenter + lDistanceToCenter);
-    theta = theta * 180 / PI;
-    frc::SmartDashboard::PutNumber("computed theta", theta);
-    double gyroVal = imu->GetAngle().value();
-    frc::SmartDashboard::PutNumber("gyro value", gyroVal);
-    frc::SmartDashboard::PutNumber("drifted gyro value", gyroVal + gyroDrift);
+  // Sensor 1: Magnetometer
+  units::magnetic_field_strength::tesla_t mag_x_native = imu->GetMagneticFieldX();
+  units::magnetic_field_strength::tesla_t mag_y_native = imu->GetMagneticFieldY();
 
-    units::magnetic_field_strength::tesla_t mag_x_native = imu->GetMagneticFieldX();
-    units::magnetic_field_strength::tesla_t mag_y_native = imu->GetMagneticFieldY();
+  double mag_x = mag_x_native.value();
+  double mag_y = mag_y_native.value();
 
-    double mag_x = mag_x_native.value();
-    double mag_y = mag_y_native.value();
+  // mag_heading is the heading from the magnetometer, where 0 is North
+  double mag_heading = ((atan2(mag_y, mag_x) * 180) / PI);
 
-    double mag_heading = ((atan2(mag_y, mag_x) * 180) / PI);
+  // og_mag_heading represents the original magnetometer heading, which is used to adjust the gyro value for ease of comparing the two
+  static double og_mag_heading = mag_heading;
+  frc::SmartDashboard::PutNumber("og mag heading", og_mag_heading);
+  frc::SmartDashboard::PutNumber("mag heading", mag_heading);
 
+  // Sensor 2: Motor Encoders
+  double lRotations = lEncoder.GetPosition(); 
+  double rRotations = rEncoder.GetPosition();
+  double theta = (rRotations - lRotations) / (rDistanceToCenter + lDistanceToCenter);
+  theta = theta * 180 / PI;
 
-    static double og_mag_heading = mag_heading;
-    frc::SmartDashboard::PutNumber("og mag heading", og_mag_heading);
-    frc::SmartDashboard::PutNumber("mag heading", mag_heading);
+  // converts to bounds (-180, 180)
+  theta = fmod(theta + og_mag_heading, 360);
+  if (theta < -180) theta += 360;
+  else if (theta > 180) theta -= 360; 
 
-    
-    // outputMagnetometerNoise(mag_heading);
-    // outputMaxDriftPerSecond(gyroVal);
+  frc::SmartDashboard::PutNumber("computed theta", theta);
 
+  // Sensor 3: Gyro
+  // gyroVal is the raw value from the gyro
+  double gyro_val = imu->GetAngle().value();
+  frc::SmartDashboard::PutNumber("raw gyro value", gyro_val);
 
-    // TODO: drift sensor to each other
+  // Functions used to find the noise of the magnetometer and max drift per second of the gyro
+  // outputMagnetometerNoise(mag_heading);
+  // outputMaxDriftPerSecond(gyro_val);
 
-    // theta_m (mag_heading) -->   N% (noise percentage) =  +/- 1.2 / (69.7+1.2) = 0.017 --> 1.7 % 
-    // theat_g  (gyroVal) -->  [d/s] (drift per second) = 0.4
-
-    double gyro_adjusted_val = fmod((-gyroVal + gyroDrift + og_mag_heading), 360); // gyro val is negative because imu is backwards
-
-    if (gyro_adjusted_val < -180) gyro_adjusted_val += 360;
-    else if (gyro_adjusted_val > 180) gyro_adjusted_val -= 360; 
-
-    frc::SmartDashboard::PutNumber("gyro adjusted val", gyro_adjusted_val);
-    // frc::SmartDashboard::PutNumber("mag adjusted val", mag_adjusted_val);
-    frc::SmartDashboard::PutNumber("error", mag_heading - gyro_adjusted_val);
-    frc::SmartDashboard::PutNumber("drift", gyroDrift);
-
-    // observed  noise of magnetometer and drift of gyro (tune further)
-    double const noise_p = 0.02; 
-    double const max_drift_per_sec = 0.4; 
-
-    double error_delta = mag_heading - gyro_adjusted_val;
-    double error_bound = noise_p * fabs(mag_heading);
-
-    double currentTime = timer->GetFPGATimestamp().value();
-    double elapsedTime = currentTime - lastTime;
-
-
-    if (elapsedTime > 1) {
-
-      // drifts gyro value to magnetometer heading at max drift per sec (TODO: Test!)
-      if (fabs(error_delta) > error_bound) {
-
-        // use copysign instead
-
-        gyroDrift += driftSensor(error_delta, max_drift_per_sec);
-
-        // if (error_delta > 0) gyroDrift += max_drift_per_sec;
-        // else gyroDrift -= max_drift_per_sec;
-      }    
-
-      // drifts gyro value to magnetometer heading relative to how far in the bounds the gyro value is
-      else {
-        double drift_percentage = (error_bound - error_delta) / error_bound;
-
-        gyroDrift += driftSensor(error_delta, max_drift_per_sec * drift_percentage);
-
-        // if (error_delta > 0) gyroDrift += drift_percentage * max_drift_per_sec;
-        // else gyroDrift -= drift_percentage * max_drift_per_sec;
-        }
-
-      lastTime = currentTime;
-    }
+  // Part 2: Drifting Gyro to match Magnetometer heading
+  sensorDriftAlgorithm(gyro_val, mag_heading, og_mag_heading);
 }
+
+
+void Robot::sensorDriftAlgorithm(double gyro_val, double mag_heading, double og_mag_heading) {
+
+  double gyro_adjusted_val = fmod((-gyro_val + gyro_drift + og_mag_heading), 360); // gyro val is negative because imu is backwards
+  if (gyro_adjusted_val < -180) gyro_adjusted_val += 360;
+  else if (gyro_adjusted_val > 180) gyro_adjusted_val -= 360; 
+  frc::SmartDashboard::PutNumber("drifted gyro val", gyro_adjusted_val);
+
+  // observed noise of magnetometer and max drift of gyro 
+  double const noise_p = 0.02; 
+  double const max_drift_per_sec = 0.4; 
+
+  double error_delta = mag_heading - gyro_adjusted_val;
+  double error_bound = noise_p * fabs(mag_heading);
+
+  double currentTime = timer->GetFPGATimestamp().value();
+  double elapsedTime = currentTime - lastTime;
+
+  if (elapsedTime > 1) {
+
+    // drifts gyro value to magnetometer heading at max drift per sec 
+    if (fabs(error_delta) > error_bound) {
+      gyro_drift += driftSensor(error_delta, max_drift_per_sec);
+    }    
+
+    // drifts gyro value to magnetometer heading relative to how far in the bounds the gyro value is
+    else {
+      double drift_percentage = 1 - ((error_bound - error_delta) / error_bound);
+      gyro_drift += driftSensor(error_delta, max_drift_per_sec * drift_percentage);
+    }
+
+    lastTime = currentTime;
+  }
+}
+
 
 // Decides whether to add or subtract the drift amount depending on the readings of the sensors. Also adresses the wrap-around cases.  
 double Robot::driftSensor(double error_delta, double drift) {
-
   if (error_delta > 0) {
-
     // addresses the case where gyro is negative and magnetometer heading is positive
     if (fabs(error_delta) > 180) {
       return -drift;
@@ -155,7 +147,6 @@ double Robot::driftSensor(double error_delta, double drift) {
     return drift;
 
   } else {
-
     // addresses the where magnetometer heading is negative and gyro is positive
     if (fabs(error_delta) > 180) {
       return drift;
@@ -177,7 +168,6 @@ void Robot::outputMagnetometerNoise(double mag_heading) {
     // represents the percentage of the magnetometer heading that is noise
     frc::SmartDashboard::PutNumber("noise percentage", (max_noise / (og_val + max_noise)) * 100);
 }
-
 
 
 void Robot::outputMaxDriftPerSecond (double gyroVal) {
