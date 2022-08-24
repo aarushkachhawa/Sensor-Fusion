@@ -43,6 +43,11 @@ class Robot : public frc::TimedRobot {
   void SimulationInit() override;
   void SimulationPeriodic() override;
 
+  void outputMagnetometerNoise(double mag_heading);
+  void outputMaxDriftPerSecond(double gyroVal);
+
+  double driftSensor(double error_delta, double max_drift_per_second);
+
   double left_y = 0.0;
   double right_x = 0.0;
 

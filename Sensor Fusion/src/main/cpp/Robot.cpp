@@ -85,35 +85,9 @@ void Robot::TeleopPeriodic() {
     frc::SmartDashboard::PutNumber("og mag heading", og_mag_heading);
     frc::SmartDashboard::PutNumber("mag heading", mag_heading);
 
-
-    // Code below to calculate mag heading noise (TODO: Test!)
-    // static double og_val = mag_heading;
-    // static double max_noise = 0;
-
-    // if (fabs(mag_heading - og_val) > max_noise) max_noise = fabs(mag_heading - og_val);
     
-    // frc::SmartDashboard::PutNumber("max noise", max_noise);
-    // frc::SmartDashboard::PutNumber("noise percentage", (max_noise / (og_val + max_noise)) * 100);
-
-
-    // Code below to calculate max drift from gyro
-
-    // static double maxGyroDriftPerSec = 0;
-    // static double previousDrift = gyroVal;
-    // double driftCurrentTime = timer->GetFPGATimestamp().value();
-    // double driftElapsedTime = driftCurrentTime - driftLastTime;
-
-    // if (driftElapsedTime > 1) {
-    //   if (fabs(previousDrift - gyroVal) > maxGyroDriftPerSec){
-    //     maxGyroDriftPerSec = fabs(previousDrift - gyroVal);
-    //   }
-    //   previousDrift = gyroVal;
-    //   driftLastTime = driftCurrentTime;
-    // }
-
-    // frc::SmartDashboard::PutNumber("maxGryoDriftPerSec", maxGyroDriftPerSec);
-
-
+    // outputMagnetometerNoise(mag_heading);
+    // outputMaxDriftPerSecond(gyroVal);
 
 
     // TODO: drift sensor to each other
@@ -121,33 +95,26 @@ void Robot::TeleopPeriodic() {
     // theta_m (mag_heading) -->   N% (noise percentage) =  +/- 1.2 / (69.7+1.2) = 0.017 --> 1.7 % 
     // theat_g  (gyroVal) -->  [d/s] (drift per second) = 0.4
 
-
-    // double gyro_adjusted_val = fmod_s(fmod_s(gyroVal, 360) + og_mag_heading, 360); 
-    // double mag_adjusted_val = fmod_s(mag_heading, 360);
-
-    double mag_adjusted_val = mag_heading;
-    //double gyro_adjusted_val = fmod(gyroVal, 360) + (gyroVal < 0 ? 360 : 0); // (-360, 360) -> 
     double gyro_adjusted_val = fmod((-gyroVal + gyroDrift + og_mag_heading), 360); // gyro val is negative because imu is backwards
+
     if (gyro_adjusted_val < -180) gyro_adjusted_val += 360;
     else if (gyro_adjusted_val > 180) gyro_adjusted_val -= 360; 
 
     frc::SmartDashboard::PutNumber("gyro adjusted val", gyro_adjusted_val);
-    frc::SmartDashboard::PutNumber("mag adjusted val", mag_adjusted_val);
-    frc::SmartDashboard::PutNumber("error", mag_adjusted_val - gyro_adjusted_val);
+    // frc::SmartDashboard::PutNumber("mag adjusted val", mag_adjusted_val);
+    frc::SmartDashboard::PutNumber("error", mag_heading - gyro_adjusted_val);
     frc::SmartDashboard::PutNumber("drift", gyroDrift);
 
     // observed  noise of magnetometer and drift of gyro (tune further)
-    double const noise_p = 0.02; // 0.017 
-    double const max_drift_per_sec = 0.5; // 0.4
+    double const noise_p = 0.02; 
+    double const max_drift_per_sec = 0.4; 
 
-    double error_delta = mag_adjusted_val - gyro_adjusted_val;
-    //double error_past_bounds = fabs(error_delta) - (mag_adjusted_val + (mag_adjusted_val * noise_p) / 2);
-    double error_bound = noise_p * mag_adjusted_val;
+    double error_delta = mag_heading - gyro_adjusted_val;
+    double error_bound = noise_p * fabs(mag_heading);
 
     double currentTime = timer->GetFPGATimestamp().value();
     double elapsedTime = currentTime - lastTime;
 
-    // TODO: Need logic addressing the wrap around
 
     if (elapsedTime > 1) {
 
@@ -155,28 +122,79 @@ void Robot::TeleopPeriodic() {
       if (fabs(error_delta) > error_bound) {
 
         // use copysign instead
-        if (error_delta > 0) gyroDrift += max_drift_per_sec;
-        else gyroDrift -= max_drift_per_sec;
+
+        gyroDrift += driftSensor(error_delta, max_drift_per_sec);
+
+        // if (error_delta > 0) gyroDrift += max_drift_per_sec;
+        // else gyroDrift -= max_drift_per_sec;
       }    
 
       // drifts gyro value to magnetometer heading relative to how far in the bounds the gyro value is
       else {
         double drift_percentage = (error_bound - error_delta) / error_bound;
 
-        if (error_delta > 0) gyroDrift += drift_percentage * max_drift_per_sec;
-        else gyroDrift -= drift_percentage * max_drift_per_sec;
+        gyroDrift += driftSensor(error_delta, max_drift_per_sec * drift_percentage);
+
+        // if (error_delta > 0) gyroDrift += drift_percentage * max_drift_per_sec;
+        // else gyroDrift -= drift_percentage * max_drift_per_sec;
         }
 
       lastTime = currentTime;
     }
+}
 
-    // error is greater than possible noise of magnetometer 
+// Decides whether to add or subtract the drift amount depending on the readings of the sensors. Also adresses the wrap-around cases.  
+double Robot::driftSensor(double error_delta, double drift) {
+
+  if (error_delta > 0) {
+
+    // addresses the case where gyro is negative and magnetometer heading is positive
+    if (fabs(error_delta) > 180) {
+      return -drift;
+    }
+    return drift;
+
+  } else {
+
+    // addresses the where magnetometer heading is negative and gyro is positive
+    if (fabs(error_delta) > 180) {
+      return drift;
+    }
+    return -drift;
+  }
+}
+
+
+void Robot::outputMagnetometerNoise(double mag_heading) {
+
+    static double og_val = mag_heading;
+    static double max_noise = 0;
+
+    if (fabs(mag_heading - og_val) > max_noise) max_noise = fabs(mag_heading - og_val);
     
-    
-    // TODO: 1. Add second case of gyro drift logic 2. Get Accelerometer Values 3. Put code into functions
+    frc::SmartDashboard::PutNumber("max noise", max_noise);
 
-    // Second case: drift by percentage p of max_drift_per_sec, where p is how far into the bounds  (in percent) it is 
+    // represents the percentage of the magnetometer heading that is noise
+    frc::SmartDashboard::PutNumber("noise percentage", (max_noise / (og_val + max_noise)) * 100);
+}
 
+
+
+void Robot::outputMaxDriftPerSecond (double gyroVal) {
+  static double maxGyroDriftPerSec = 0;
+  static double previousDrift = gyroVal;
+  double driftCurrentTime = timer->GetFPGATimestamp().value();
+  double driftElapsedTime = driftCurrentTime - driftLastTime;
+
+    if (driftElapsedTime > 1) {
+      if (fabs(previousDrift - gyroVal) > maxGyroDriftPerSec){
+        maxGyroDriftPerSec = fabs(previousDrift - gyroVal);
+      }
+      previousDrift = gyroVal;
+      driftLastTime = driftCurrentTime;
+    }
+
+    frc::SmartDashboard::PutNumber("maxGryoDriftPerSec", maxGyroDriftPerSec);
 }
 
 
