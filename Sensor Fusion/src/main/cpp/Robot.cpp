@@ -70,7 +70,8 @@ void Robot::TeleopPeriodic() {
   // mag_heading is the heading from the magnetometer, where 0 is North
   double mag_heading = ((atan2(mag_y, mag_x) * 180) / PI);
 
-  // og_mag_heading represents the original magnetometer heading, which is used to adjust the gyro value for ease of comparing the two
+  /* og_mag_heading represents the original magnetometer heading, which is added to the gyro value so 
+     that sensor readings match regardless of starting orientation */
   static double og_mag_heading = mag_heading;
   frc::SmartDashboard::PutNumber("og mag heading", og_mag_heading);
   frc::SmartDashboard::PutNumber("mag heading", mag_heading);
@@ -93,7 +94,7 @@ void Robot::TeleopPeriodic() {
   double gyro_val = imu->GetAngle().value();
   frc::SmartDashboard::PutNumber("raw gyro value", gyro_val);
 
-  // Functions used to find the noise of the magnetometer and max drift per second of the gyro
+  // functions used to find the noise of the magnetometer and max drift per second of the gyro
   // outputMagnetometerNoise(mag_heading);
   // outputMaxDriftPerSecond(gyro_val);
 
