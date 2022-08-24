@@ -70,6 +70,7 @@ class Robot : public frc::TimedRobot {
   SFDrive* robotDrive = new SFDrive(lMotor, rMotor);
 
   Timer* timer = new Timer(); 
+  double driftLastTime = 0;
   double lastTime = 0;
 
   double gyroDrift = 0;

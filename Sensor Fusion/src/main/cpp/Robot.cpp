@@ -70,7 +70,7 @@ void Robot::TeleopPeriodic() {
     frc::SmartDashboard::PutNumber("computed theta", theta);
     double gyroVal = imu->GetAngle().value();
     frc::SmartDashboard::PutNumber("gyro value", gyroVal);
-    frc::SmartDashboard::PutNumber("adjusted gyro value", gyroVal + gyroDrift);
+    frc::SmartDashboard::PutNumber("drifted gyro value", gyroVal + gyroDrift);
 
     units::magnetic_field_strength::tesla_t mag_x_native = imu->GetMagneticFieldX();
     units::magnetic_field_strength::tesla_t mag_y_native = imu->GetMagneticFieldY();
@@ -81,62 +81,104 @@ void Robot::TeleopPeriodic() {
     double mag_heading = ((atan2(mag_y, mag_x) * 180) / PI);
 
 
-    // formula to verify gyro and mag: ((gyroVal % 360) + og_mag_heading) % 360 = mag_heading % 360
     static double og_mag_heading = mag_heading;
     frc::SmartDashboard::PutNumber("og mag heading", og_mag_heading);
+    frc::SmartDashboard::PutNumber("mag heading", mag_heading);
 
 
     // Code below to calculate mag heading noise (TODO: Test!)
-    static double og_val = mag_heading;
-    static double max_noise = 0;
+    // static double og_val = mag_heading;
+    // static double max_noise = 0;
 
-    if (fabs(mag_heading - og_val) > max_noise) max_noise = fabs(mag_heading - og_val);
+    // if (fabs(mag_heading - og_val) > max_noise) max_noise = fabs(mag_heading - og_val);
+    
+    // frc::SmartDashboard::PutNumber("max noise", max_noise);
+    // frc::SmartDashboard::PutNumber("noise percentage", (max_noise / (og_val + max_noise)) * 100);
 
-    // if ((mag_heading - og_val) > max) max = mag_heading - og_val;
-    // if ((og_val - mag_heading) < min) min = og_val - mag_heading;
-    // frc::SmartDashboard::PutNumber("min mag heading", min);
-    // frc::SmartDashboard::PutNumber("max mag heading", max);
 
-    frc::SmartDashboard::PutNumber("mag heading", mag_heading);
-    frc::SmartDashboard::PutNumber("max noise", max_noise);
-    frc::SmartDashboard::PutNumber("noise percentage", (max_noise / (og_val + max_noise)) * 100);
+    // Code below to calculate max drift from gyro
+
+    // static double maxGyroDriftPerSec = 0;
+    // static double previousDrift = gyroVal;
+    // double driftCurrentTime = timer->GetFPGATimestamp().value();
+    // double driftElapsedTime = driftCurrentTime - driftLastTime;
+
+    // if (driftElapsedTime > 1) {
+    //   if (fabs(previousDrift - gyroVal) > maxGyroDriftPerSec){
+    //     maxGyroDriftPerSec = fabs(previousDrift - gyroVal);
+    //   }
+    //   previousDrift = gyroVal;
+    //   driftLastTime = driftCurrentTime;
+    // }
+
+    // frc::SmartDashboard::PutNumber("maxGryoDriftPerSec", maxGyroDriftPerSec);
+
 
 
 
     // TODO: drift sensor to each other
-    // 0.01 * error * time interval
-    // Kalman sensor - probability state filter
 
     // theta_m (mag_heading) -->   N% (noise percentage) =  +/- 1.2 / (69.7+1.2) = 0.017 --> 1.7 % 
-    // theat_g  (gyroVal) -->  [d/s] (drift per second) = 
+    // theat_g  (gyroVal) -->  [d/s] (drift per second) = 0.4
 
-    // adjusts raw gyro and magnetometer (TODO: Test!)
-    double gyro_adjusted_val = fmod(fmod(gyroVal, 360) + og_mag_heading, 360);
-    double mag_adjusted_val = fmod(mag_heading, 360);
 
-    // observed  noise of magnetometer and drift of gyro
-    double noise_p = 0.017; 
-    double max_drift_per_sec = 0; //find 
+    // double gyro_adjusted_val = fmod_s(fmod_s(gyroVal, 360) + og_mag_heading, 360); 
+    // double mag_adjusted_val = fmod_s(mag_heading, 360);
 
-    double error_delta = gyroVal - mag_heading;
-    double error_past_bounds = fabs(error_delta) - (mag_heading + (mag_heading * noise_p) / 2);
+    double mag_adjusted_val = mag_heading;
+    //double gyro_adjusted_val = fmod(gyroVal, 360) + (gyroVal < 0 ? 360 : 0); // (-360, 360) -> 
+    double gyro_adjusted_val = fmod((-gyroVal + gyroDrift + og_mag_heading), 360); // gyro val is negative because imu is backwards
+    if (gyro_adjusted_val < -180) gyro_adjusted_val += 360;
+    else if (gyro_adjusted_val > 180) gyro_adjusted_val -= 360; 
+
+    frc::SmartDashboard::PutNumber("gyro adjusted val", gyro_adjusted_val);
+    frc::SmartDashboard::PutNumber("mag adjusted val", mag_adjusted_val);
+    frc::SmartDashboard::PutNumber("error", mag_adjusted_val - gyro_adjusted_val);
+    frc::SmartDashboard::PutNumber("drift", gyroDrift);
+
+    // observed  noise of magnetometer and drift of gyro (tune further)
+    double const noise_p = 0.02; // 0.017 
+    double const max_drift_per_sec = 0.5; // 0.4
+
+    double error_delta = mag_adjusted_val - gyro_adjusted_val;
+    //double error_past_bounds = fabs(error_delta) - (mag_adjusted_val + (mag_adjusted_val * noise_p) / 2);
+    double error_bound = noise_p * mag_adjusted_val;
 
     double currentTime = timer->GetFPGATimestamp().value();
     double elapsedTime = currentTime - lastTime;
 
-    // error is greater than possible noise of magnetometer 
-    if (fabs(error_delta) > noise_p * mag_heading) {
+    // TODO: Need logic addressing the wrap around
+
+    if (elapsedTime > 1) {
 
       // drifts gyro value to magnetometer heading at max drift per sec (TODO: Test!)
-      if (elapsedTime > 1) {
-        gyroDrift -= max_drift_per_sec;
-        lastTime = currentTime;
-      }
-    }    
+      if (fabs(error_delta) > error_bound) {
 
+        // use copysign instead
+        if (error_delta > 0) gyroDrift += max_drift_per_sec;
+        else gyroDrift -= max_drift_per_sec;
+      }    
+
+      // drifts gyro value to magnetometer heading relative to how far in the bounds the gyro value is
+      else {
+        double drift_percentage = (error_bound - error_delta) / error_bound;
+
+        if (error_delta > 0) gyroDrift += drift_percentage * max_drift_per_sec;
+        else gyroDrift -= drift_percentage * max_drift_per_sec;
+        }
+
+      lastTime = currentTime;
+    }
+
+    // error is greater than possible noise of magnetometer 
     
+    
+    // TODO: 1. Add second case of gyro drift logic 2. Get Accelerometer Values 3. Put code into functions
+
+    // Second case: drift by percentage p of max_drift_per_sec, where p is how far into the bounds  (in percent) it is 
 
 }
+
 
 void Robot::DisabledInit() {}
 void Robot::DisabledPeriodic() {}
