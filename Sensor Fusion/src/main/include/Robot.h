@@ -12,6 +12,7 @@
 #include <frc/ADIS16448_IMU.h>
 #include <frc/estimator/ExtendedKalmanFilter.h>
 #include <frc/Timer.h>
+#include "SensorDriftModule.h"
 
 // change ids
 #define lMotorLeaderID 15
@@ -25,6 +26,7 @@ using namespace frc;
 
 class Robot : public frc::TimedRobot {
  public:
+  
   void RobotInit() override;
   void RobotPeriodic() override;
 
@@ -43,10 +45,10 @@ class Robot : public frc::TimedRobot {
   void SimulationInit() override;
   void SimulationPeriodic() override;
 
-  void outputMagnetometerNoise(double mag_heading);
-  void outputMaxDriftPerSecond(double gyroVal);
-  void sensorDriftAlgorithm(double gyroVal, double mag_heading, double og_mag_heading);
-  double driftSensor(double error_delta, double max_drift_per_second);
+  // void outputMagnetometerNoise(double mag_heading);
+  // void outputMaxDriftPerSecond(double gyroVal);
+  // void sensorDriftAlgorithm(double gyroVal, double mag_heading, double og_mag_heading);
+  // double driftSensor(double error_delta, double max_drift_per_second);
 
   double left_y = 0.0;
   double right_x = 0.0;
@@ -56,25 +58,28 @@ class Robot : public frc::TimedRobot {
   rev::CANSparkMax* rMotor = new rev::CANSparkMax(rMotorLeaderID, rev::CANSparkMax::MotorType::kBrushless);
   rev::CANSparkMax* rMotorFollower = new rev::CANSparkMax(rMotorFollowerID, rev::CANSparkMax::MotorType::kBrushless);
 
-  rev::SparkMaxRelativeEncoder lEncoder = lMotor->GetEncoder();
-  rev::SparkMaxRelativeEncoder rEncoder = rMotor->GetEncoder();
+  //rev::SparkMaxRelativeEncoder lEncoder = lMotor->GetEncoder();
+  //rev::SparkMaxRelativeEncoder rEncoder = rMotor->GetEncoder();
 
   Joystick* stick = new Joystick(0);
 
   // in inches
-  const double rDistanceToCenter = 13.0; 
-  const double lDistanceToCenter = 13.0;
+  // const double rDistanceToCenter = 13.0; 
+  // const double lDistanceToCenter = 13.0;
 
   // gyro
-  frc::ADIS16448_IMU* imu = new ADIS16448_IMU();
+  // frc::ADIS16448_IMU* imu = new ADIS16448_IMU();
 
   SFDrive* robotDrive = new SFDrive(lMotor, rMotor);
 
-  Timer* timer = new Timer(); 
-  double driftLastTime = 0;
-  double lastTime = 0;
 
-  double gyro_drift = 0;
+  SensorDriftModule* sensorDrift = new SensorDriftModule(lMotor, rMotor);
+
+  // Timer* timer = new Timer(); 
+  // double driftLastTime = 0;
+  // double lastTime = 0;
+
+  // double gyro_drift = 0;
 
 
 };
