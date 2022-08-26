@@ -55,12 +55,7 @@ class Robot : public frc::TimedRobot {
 
   rev::SparkMaxRelativeEncoder* lEncoder = &lEncoder_og;
   rev::SparkMaxRelativeEncoder* rEncoder = &rEncoder_og;
-
-  // std::unique_ptr<rev::SparkMaxRelativeEncoder> lEncoder = std::make_unique<rev::SparkMaxRelativeEncoder>(lEncoder_og);
-  // std::unique_ptr<rev::SparkMaxRelativeEncoder> rEncoder = std::make_unique<rev::SparkMaxRelativeEncoder>(rEncoder_og);
   
-  
-
   Joystick* stick = new Joystick(0);
 
   SFDrive* robotDrive = new SFDrive(lMotor, rMotor);

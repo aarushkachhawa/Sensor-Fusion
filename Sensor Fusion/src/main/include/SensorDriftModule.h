@@ -15,13 +15,12 @@ using namespace frc;
 
 class SensorDriftModule {
  public:
-
   SensorDriftModule(rev::SparkMaxRelativeEncoder* lEncoder, rev::SparkMaxRelativeEncoder* rEncoder); 
 
   void updateSensors();
   void outputMagnetometerNoise(double mag_heading);
   void outputMaxDriftPerSecond(double gyroVal);
-  double sensorDriftAlgorithm(double gyroVal, double mag_heading, double lastTime);
+  double sensorDriftAlgorithm(double driftedSensor, double leadSensor, double lastTime);
   double driftSensor(double error_delta, double max_drift_per_second);
   void initializeSensors();
   void startTimer();
@@ -36,15 +35,11 @@ class SensorDriftModule {
   rev::CANSparkMax* lMotor = nullptr;
   rev::CANSparkMax* rMotor = nullptr;
 
-  // std::unique_ptr<rev::SparkMaxRelativeEncoder> lEncoder;
-  // std::unique_ptr<rev::SparkMaxRelativeEncoder> rEncoder;
-
   rev::SparkMaxRelativeEncoder* lEncoder; 
   rev::SparkMaxRelativeEncoder* rEncoder;
 
   Timer* timer = new Timer(); 
   double driftLastTime = 0;
-  //double lastTime = 0;
   double lastTimeGyro = 0;
   double lastTimeEncoder = 0;
 
