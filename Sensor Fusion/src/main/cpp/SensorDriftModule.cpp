@@ -10,7 +10,7 @@
 SensorDriftModule::SensorDriftModule(rev::SparkMaxRelativeEncoder* lEncoder, rev::SparkMaxRelativeEncoder* rEncoder): lEncoder{lEncoder}, rEncoder{rEncoder} {}
 
 void SensorDriftModule::updateSensors() {
-  
+
   /* Part 1: Reading/Calculating Sensor Data (3 Sensors) */
 
   // Sensor 1: Magnetometer
@@ -91,7 +91,7 @@ double SensorDriftModule::sensorDriftAlgorithm(double driftedSensor, double lead
 
     // drifts gyro value to magnetometer heading relative to how far in the bounds the gyro value is
     else {
-      double drift_percentage = 1 - ((error_bound - error_delta) / error_bound);
+      double drift_percentage = 1 - ((error_bound - fabs(error_delta)) / error_bound);
       return driftSensor(error_delta, max_drift_per_sec * drift_percentage);
     }
   }
