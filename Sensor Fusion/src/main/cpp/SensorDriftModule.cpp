@@ -7,17 +7,26 @@
 #include <math.h>
 
 
-SensorDriftModule::SensorDriftModule(rev::CANSparkMax* lMotor, rev::CANSparkMax* rMotor) {
-    this->lMotor = lMotor;
-    this->rMotor = rMotor;
+SensorDriftModule::SensorDriftModule(rev::SparkMaxRelativeEncoder* lEncoder, rev::SparkMaxRelativeEncoder* rEncoder): lEncoder{lEncoder}, rEncoder{rEncoder} {
+    // this->lEncoder = lEncoder;
+    // this->rEncoder = rEncoder;
+    
+    // this->lMotor = lMotor;
+    // this->rMotor = rMotor;
 
-    rev::SparkMaxRelativeEncoder lEncoder_og = lMotor->GetEncoder();
-    rev::SparkMaxRelativeEncoder rEncoder_og = rMotor->GetEncoder();
+    // rev::SparkMaxRelativeEncoder lEncoder_og = lMotor->GetEncoder();
+    // rev::SparkMaxRelativeEncoder rEncoder_og = rMotor->GetEncoder();
 
-    lEncoder = std::make_unique<rev::SparkMaxRelativeEncoder>(lEncoder_og);
-    rEncoder = std::make_unique<rev::SparkMaxRelativeEncoder>(rEncoder_og);
+    // lEncoder = std::make_unique<rev::SparkMaxRelativeEncoder>(lEncoder_og);
+    // rEncoder = std::make_unique<rev::SparkMaxRelativeEncoder>(rEncoder_og);
 
-    // try this
+
+
+    // rev::SparkMaxRelativeEncoder lEncoder_og = lMotor->GetEncoder();
+    // rev::SparkMaxRelativeEncoder rEncoder_og = rMotor->GetEncoder();
+
+    // lEncoder = &lEncoder_og;
+    // rEncoder = &rEncoder_og;
 
 }
 
@@ -43,8 +52,8 @@ void SensorDriftModule::updateSensors() {
 
   // Sensor 2: Motor Encoders
 
-  rev::SparkMaxRelativeEncoder lEncoder_obj = *lEncoder.get();
-  rev::SparkMaxRelativeEncoder rEncoder_obj = *rEncoder.get();
+  rev::SparkMaxRelativeEncoder lEncoder_obj = *lEncoder;
+  rev::SparkMaxRelativeEncoder rEncoder_obj = *rEncoder;
 
   double lRotations = lEncoder_obj.GetPosition(); 
   double rRotations = rEncoder_obj.GetPosition();
@@ -52,32 +61,36 @@ void SensorDriftModule::updateSensors() {
   theta = theta * 180 / PI;
 
   // converts to bounds (-180, 180)
-  theta = fmod(theta + og_mag_heading, 360);
+  theta = fmod(theta + og_mag_heading + theta_drift, 360);
   if (theta < -180) theta += 360;
   else if (theta > 180) theta -= 360; 
 
-  frc::SmartDashboard::PutNumber("computed theta", theta);
+  frc::SmartDashboard::PutNumber("drifted theta", theta);
 
   // Sensor 3: Gyro
   // gyroVal is the raw value from the gyro
   double gyro_val = imu->GetAngle().value();
   frc::SmartDashboard::PutNumber("raw gyro value", gyro_val);
 
+  double gyro_adjusted_val = fmod((-gyro_val + gyro_drift + og_mag_heading), 360); // gyro val is negative because imu is backwards
+  if (gyro_adjusted_val < -180) gyro_adjusted_val += 360;
+  else if (gyro_adjusted_val > 180) gyro_adjusted_val -= 360; 
+  frc::SmartDashboard::PutNumber("drifted gyro val", gyro_adjusted_val);
+
   // functions used to find the noise of the magnetometer and max drift per second of the gyro
   // outputMagnetometerNoise(mag_heading);
   // outputMaxDriftPerSecond(gyro_val);
 
   // Part 2: Drifting Gyro to match Magnetometer heading
-  sensorDriftAlgorithm(gyro_val, mag_heading, og_mag_heading);
+
+  gyro_drift += sensorDriftAlgorithm(gyro_adjusted_val, mag_heading, lastTimeGyro);
+  theta_drift += sensorDriftAlgorithm(theta, mag_heading, lastTimeEncoder);
 }
 
 
-void SensorDriftModule::sensorDriftAlgorithm(double gyro_val, double mag_heading, double og_mag_heading) {
+double SensorDriftModule::sensorDriftAlgorithm(double gyro_adjusted_val, double mag_heading, double lastTime) {
 
-  double gyro_adjusted_val = fmod((-gyro_val + gyro_drift + og_mag_heading), 360); // gyro val is negative because imu is backwards
-  if (gyro_adjusted_val < -180) gyro_adjusted_val += 360;
-  else if (gyro_adjusted_val > 180) gyro_adjusted_val -= 360; 
-  frc::SmartDashboard::PutNumber("drifted gyro val", gyro_adjusted_val);
+  
 
   // observed noise of magnetometer and max drift of gyro 
   double const noise_p = 0.02; 
@@ -91,19 +104,29 @@ void SensorDriftModule::sensorDriftAlgorithm(double gyro_val, double mag_heading
 
   if (elapsedTime > 1) {
 
+    if (lastTime == lastTimeGyro) lastTimeGyro = currentTime;
+    else lastTimeEncoder = currentTime;
+
     // drifts gyro value to magnetometer heading at max drift per sec 
     if (fabs(error_delta) > error_bound) {
-      gyro_drift += driftSensor(error_delta, max_drift_per_sec);
+      //gyro_drift += driftSensor(error_delta, max_drift_per_sec);
+      return driftSensor(error_delta, max_drift_per_sec);
     }    
 
     // drifts gyro value to magnetometer heading relative to how far in the bounds the gyro value is
     else {
       double drift_percentage = 1 - ((error_bound - error_delta) / error_bound);
-      gyro_drift += driftSensor(error_delta, max_drift_per_sec * drift_percentage);
+      //gyro_drift += driftSensor(error_delta, max_drift_per_sec * drift_percentage);
+      return driftSensor(error_delta, max_drift_per_sec * drift_percentage);
     }
+    
+    // if initial values are 0, function needs to be called with gyro first
+    
 
-    lastTime = currentTime;
+    //lastTime = currentTime;
   }
+
+  return 0.0;
 }
 
 
@@ -160,8 +183,8 @@ void SensorDriftModule::outputMaxDriftPerSecond (double gyroVal) {
 
 void SensorDriftModule::initializeSensors() {
 
-    rev::SparkMaxRelativeEncoder lEncoder_obj = *lEncoder.get();
-    rev::SparkMaxRelativeEncoder rEncoder_obj = *rEncoder.get();
+    rev::SparkMaxRelativeEncoder lEncoder_obj = *lEncoder;
+    rev::SparkMaxRelativeEncoder rEncoder_obj = *rEncoder;
 
 
     lEncoder_obj.SetPosition(0);
@@ -180,8 +203,4 @@ void SensorDriftModule::startTimer() {
     timer->Start();
 }
 
-// rev::SparkMaxRelativeEncoder SensorDriftModule::getEncoderObj(std::unique_ptr<rev::SparkMaxRelativeEncoder> encoder) {
-//     rev::SparkMaxRelativeEncoder encoder_obj = *encoder.get();
-//     return encoder_obj;
-// }
 
